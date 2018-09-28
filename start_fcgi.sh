@@ -1,0 +1,1 @@
+spawn-fcgi -f src/iipsrv.fcgi -a 0.0.0.0 -p 9000
