@@ -1,8 +1,9 @@
-FROM ubuntu:16.04
+FROM debian:jessie
 
 ENV IIP_VERSION=74e17e2e124f5d7af0eddc020cd973588c784a1b
 
 RUN apt-get update \
+        && apt-get dist-upgrade -y \
         && apt-get install -y \
             wget \
             unzip \
@@ -14,21 +15,27 @@ RUN apt-get update \
             libtiff5-dev \
             libopenjpeg-dev \
             libzthread-dev \
-            # libmemcached-dev \
+            libmemcached-dev \
             libpng-dev \
             zlib1g-dev \
-            libapache2-mod-fastcgi \
+            spawn-fcgi \
             vim \
+            pkg-config \
+            # apache2 \
+            # libapache2-mod-fastcgi \
+            # libapache2-mod-wsgi-py3 \
+        && apt-get clean \
         && rm -rf /var/lib/apt/lists/*
 
-RUN wget https://github.com/cmarmo/iipsrv-astro/archive/${IIP_VERSION}.zip \
-        && unzip ${IIP_VERSION}.zip \
-        && rm -f ${IIP_VERSION}.zip
+# RUN a2enmod fastcgi
 
+COPY ./iipsrv-astro /iipsrv
+WORKDIR /iipsrv
 
-RUN cd iipsrv-astro-${IIP_VERSION} \
-        && ./autogen.sh \
+RUN ./autogen.sh \
         && ./configure \
         && make 
 
-RUN ls -ltr
+EXPOSE 9000
+
+# ENTRYPOINT start-stop-daemon --start --oknodo --name fcgi --startas start_fcgi.sh
