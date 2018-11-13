@@ -21,13 +21,9 @@ RUN apt-get update \
             spawn-fcgi \
             vim \
             pkg-config \
-            # apache2 \
-            # libapache2-mod-fastcgi \
-            # libapache2-mod-wsgi-py3 \
         && apt-get clean \
         && rm -rf /var/lib/apt/lists/*
 
-# RUN a2enmod fastcgi
 
 COPY ./iipsrv /iipsrv
 WORKDIR /iipsrv
@@ -37,5 +33,3 @@ RUN ./autogen.sh \
         && make 
 
 EXPOSE 9000
-
-# ENTRYPOINT start-stop-daemon --start --oknodo --name fcgi --startas start_fcgi.sh
