@@ -4,7 +4,7 @@ upstream iipsrv {
 
 server {
     listen 8080;
-    location /fcgi-bin/iipsrv.fcgi {
+    location / {
         fastcgi_pass    iipsrv;
         fastcgi_param   PATH_INFO $fastcgi_script_name;
         fastcgi_param   REQUEST_METHOD $request_method;

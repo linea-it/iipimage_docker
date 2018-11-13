@@ -8,8 +8,11 @@ services:
       - ./start_fcgi.sh:/iipsrv/start_fcgi.sh
     environment:
       - LOGFILE=/tmp/iipsrv.log
-      - VERBOSITY=5
+      - VERBOSITY=10
       - FILESYSTEM_PREFIX=/newtiff/
+      - MAX_IMAGE_CACHE_SIZE=10
+      - MAX_CVT=3000
+      - JPEG_QUALITY=90
     command: sh start_fcgi.sh
   nginx:
     build: ./nginx

@@ -29,7 +29,7 @@ RUN apt-get update \
 
 # RUN a2enmod fastcgi
 
-COPY ./iipsrv-astro /iipsrv
+COPY ./iipsrv /iipsrv
 WORKDIR /iipsrv
 
 RUN ./autogen.sh \
