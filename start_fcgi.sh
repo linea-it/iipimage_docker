@@ -1,1 +1,3 @@
-spawn-fcgi -f src/iipsrv.fcgi -a 0.0.0.0 -p 9000
+#!/bin/bash
+spawn-fcgi -f src/iipsrv.fcgi -p 9000
+tail -f /tmp/iipsrv.log

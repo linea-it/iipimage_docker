@@ -3,7 +3,7 @@ FROM debian:jessie
 ENV IIP_VERSION=74e17e2e124f5d7af0eddc020cd973588c784a1b
 
 RUN apt-get update \
-        && apt-get dist-upgrade \
+        && apt-get dist-upgrade -y \
         && apt-get install -y \
             wget \
             unzip \
@@ -20,28 +20,16 @@ RUN apt-get update \
             zlib1g-dev \
             spawn-fcgi \
             vim \
-            # apache2 \
-            # libapache2-mod-fastcgi \
-            # libapache2-mod-wsgi-py3 \
+            pkg-config \
         && apt-get clean \
         && rm -rf /var/lib/apt/lists/*
 
-# RUN a2enmod fastcgi
 
-RUN wget https://github.com/cmarmo/iipsrv-astro/archive/${IIP_VERSION}.zip \
-        && unzip ${IIP_VERSION}.zip \
-        && rm -f ${IIP_VERSION}.zip
+COPY ./iipsrv /iipsrv
+WORKDIR /iipsrv
 
-
-RUN cd iipsrv-astro-${IIP_VERSION} \
-        && ./autogen.sh \
+RUN ./autogen.sh \
         && ./configure \
         && make 
 
-COPY ./start_fcgi.sh .
-
-WORKDIR iipsrv-astro-${IIP_VERSION}
-
 EXPOSE 9000
-
-# ENTRYPOINT start-stop-daemon --start --oknodo --name fcgi --startas start_fcgi.sh
