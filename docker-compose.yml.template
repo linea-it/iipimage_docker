@@ -5,7 +5,6 @@ services:
     build: .
     volumes:
       - ./tiff:/images
-      - ./start_fcgi.sh:/iipsrv/start_fcgi.sh
     environment:
       - LOGFILE=/tmp/iipsrv.log
       - VERBOSITY=10

@@ -5,8 +5,6 @@
 ```
 cp docker-compose.yml.template docker-compose.yml
 cp nginx/nginx-proxy.conf.template nginx/nginx-proxy.conf
-git submodule init
-git submodule update
 ```
 
 ## Image folder
