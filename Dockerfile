@@ -36,4 +36,6 @@ RUN ./autogen.sh \
         && ./configure \
         && make 
 
+# ADD /tiff /images
+
 EXPOSE 9000
