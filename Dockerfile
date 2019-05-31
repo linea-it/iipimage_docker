@@ -1,30 +1,21 @@
-FROM debian:jessie
+FROM debian:stable
+
 COPY . /iip
-RUN apt-get update \
-        && apt-get dist-upgrade -y \
-        && apt-get install -y \
-            g++ \
-            make \
-            autoconf \
-            automake \
-            libtool \
-            libtiff5-dev \
-            libopenjpeg-dev \
-            libzthread-dev \
-            libmemcached-dev \
-            libpng-dev \
-            zlib1g-dev \
-            spawn-fcgi \
-            pkg-config \
-        && apt-get clean \
-        && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /iip/srv
+RUN \
+    DEBIAN_FRONTEND=noninteractive \
+    apt-get -y -q update \
+    && apt-get -y -q --no-install-recommends install \
+		iipimage-server \
+                gosu \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm /var/log/dpkg.log
 
-RUN ./autogen.sh \
-        && ./configure \
-        && make 
+ENV LANG=C
 
 WORKDIR /iip
+
+COPY start.sh /iip
 
 EXPOSE 9000
