@@ -1,4 +1,4 @@
 #!/bin/bash
-spawn-fcgi -f src/iipsrv.fcgi -p 9000
-touch /tmp/iipsrv.log
-tail -f /tmp/iipsrv.log
+spawn-fcgi -f srv/src/iipsrv.fcgi -p 9000
+touch $LOGFILE
+tail -f $LOGFILE
