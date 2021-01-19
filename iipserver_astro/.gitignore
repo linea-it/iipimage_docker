@@ -2,3 +2,4 @@ tiff
 nginx/nginx-proxy.conf
 docker-compose.yml
 nginx/build
+log/*.log
