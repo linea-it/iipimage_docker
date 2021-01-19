@@ -1,0 +1,260 @@
+#!/usr/bin/env node
+// -*- mode: Javascript -*-
+
+// fastcgitest
+// ===========
+// Copyright 2011 Jeremy Bornstein
+// Licensed under the BSD 3-clause license
+//
+// USAGE: fastcgitest example.com:1234
+// Attempts to connect to a FastCGI server on example.com port 1234
+// and verify that the result status code is 200. Exit code from this
+// script will be 0 if all is well and nonzero otherwise.
+//
+// It's cheap and dirty but seems to be solid enough. Should be usable
+// with monit 5.3 or later.
+
+
+var net = require ('net');
+
+var FCGI_VERSION = 1;
+
+// Roles
+var FCGI_RESPONDER = 1;
+
+// Record types
+var FCGI_BEGIN_REQUEST = 1;
+var FCGI_END_REQUEST = 3;
+var FCGI_PARAMS = 4;
+var FCGI_STDIN = 5;
+var FCGI_STDOUT = 6;
+var FCGI_STDERR = 7;
+
+// Protocol status
+var FCGI_REQUEST_COMPLETE = 0;
+
+
+function FastCGIParser (callback) {
+    var me = this;
+    var rec = {};
+
+    me.parse = function (buffer) {
+        var pos = 0;
+        var max = buffer.length;
+        if (pos >= max) return;
+        while (pos < max) {
+            if (!('version' in rec)) rec.version = buffer[pos++];
+            if (pos >= max) return;
+            if (!('type' in rec)) rec.type = parseInt (buffer[pos++]);
+            if (pos >= max) return;
+            if (!('requestID' in rec)) {
+                if (!rec.requestIDByte1) rec.requestIDByte1 = buffer[pos++];
+                if (pos >= max) return;
+                rec.requestID = (rec.requestIDByte1 << 8) + buffer[pos++];
+                delete rec.requestIDByte1;
+                if (pos >= max) return;
+            }
+            if (!('contentLength' in rec)) {
+                if (!rec.contentLengthByte1) rec.contentLengthByte1 = buffer[pos++];
+                if (pos >= max) return;
+                rec.contentLength = (rec.contentLengthByte1 << 8) + buffer[pos++];
+                delete rec.contentLengthByte1;
+                if (pos >= max) return;
+            }
+
+            if (!('paddingLength' in rec)) {
+                rec.paddingLength = buffer[pos++];
+                if (pos >= max) return;
+            }
+
+            if (!('reservedByte' in rec)) {
+                rec.reservedByte = buffer[pos++];
+                if (pos >= max) return;
+            }
+    
+            if (!rec.content) {
+                rec.content = new Buffer (rec.contentLength);
+                rec.contentPos = 0;
+            }
+    
+            var charsWantedInContent = rec.contentLength - rec.contentPos;
+    
+            if (pos + charsWantedInContent > max) {
+                // we'll have partial content
+                buffer.copy (rec.content, rec.contentPos, pos, max - pos);
+                rec.contentPos += max - pos;
+                return;
+            }
+
+            if (charsWantedInContent > 0) {
+                // we can get the entire rest of the content.
+                buffer.copy (rec.content, rec.contentPos, pos, pos + charsWantedInContent);
+                rec.contentPos += charsWantedInContent;
+                pos += charsWantedInContent;
+                callback (rec);
+                if (pos >= max) return;
+            }
+
+            // we can get/skip at least one byte of padding.
+            if (!('paddingRead' in rec)) rec.paddingRead = 0;
+            if (rec.paddingRead < rec.paddingLength) {
+                var remainingChars = max - pos;
+                var paddingRemaining = rec.paddingLength - rec.paddingRead;
+                var paddingToRead = Math.min (remainingChars, paddingRemaining);
+                rec.paddingRead += paddingToRead;
+                pos += paddingToRead;
+            }
+
+            if ( rec.paddingRead == rec.paddingLength) {
+                rec = {};
+            }
+        }
+    };
+
+}
+
+
+function FastCGIRecord (requestID, type, content) {
+
+    // we also accept strings.
+    if (!Buffer.isBuffer (content)) {
+        content = new Buffer (content, 'utf8');
+    }
+
+    var contentLength = content.length;
+
+    var paddingLength = 8 - (contentLength % 8);
+    if (paddingLength == 8) paddingLength = 0;
+
+    var result = new Buffer (8 + contentLength + paddingLength);
+    result[0] = FCGI_VERSION;
+    result[1] = type;
+
+    result[2] = requestID >> 8;
+    result[3] = requestID & 0xFF;
+    result[4] = contentLength >> 8;
+    result[5] = contentLength & 0xFF;
+    result[6] = paddingLength;
+    result[7] = 0;
+    content.copy (result, 8, 0);
+    return result;
+}
+
+function FastCGIBeginRequest (requestID, role, flags) {
+    var content = new Buffer (8);
+    content[0] = role >> 8;
+    content[1] = role & 0xFF;
+    content[2] = flags;
+    return FastCGIRecord (requestID, FCGI_BEGIN_REQUEST, content);
+}
+
+function FastCGIParams (requestID, pairs) {
+    var contentLength = 0;
+    for (var key in pairs) {
+        var value = pairs[key];
+        var keyLength = key.length;
+        var keyLengthBytes = (keyLength <= 127) ? 1 : 4;
+        var valueLength = value.length;
+        var valueLengthBytes = (valueLength <= 127) ? 1 : 4;
+        contentLength += keyLength + valueLength + keyLengthBytes + valueLengthBytes;
+    }
+    var content = new Buffer (contentLength);
+    var pos = 0;
+    for (var key in pairs) {
+        var value = pairs[key];
+        var keyLength = Buffer.byteLength (key, 'utf8');
+        var keyLengthBytes = (keyLength <= 127) ? 1 : 4;
+        var valueLength = Buffer.byteLength (value, 'utf8');
+        var valueLengthBytes = (valueLength <= 127) ? 1 : 4;
+        if (keyLength <= 127) {
+            content[pos++] = keyLength;
+        } else {
+            content[pos++] = (keyLength >> 24) & 0xFF;
+            content[pos++] = (keyLength >> 16) & 0xFF;
+            content[pos++] = (keyLength >> 8) & 0xFF;
+            content[pos++] = keyLength & 0xFF;
+        }
+        if (valueLength <= 127) {
+            content[pos++] = valueLength;
+        } else {
+            content[pos++] = (valueLength >> 24) & 0xFF;
+            content[pos++] = (valueLength >> 16) & 0xFF;
+            content[pos++] = (valueLength >> 8) & 0xFF;
+            content[pos++] = valueLength & 0xFF;
+        }
+        pos += content.write (key, pos, keyLength, 'utf8');
+        pos += content.write (value, pos, valueLength, 'utf8');
+    }
+
+    return FastCGIRecord (requestID, FCGI_PARAMS, content);
+}
+
+
+
+function testFastCGIConnection (host, port, callback) {
+    var socket = net.createConnection (port, host);
+    var stdout = '';
+
+    var parser = new FastCGIParser (function (rec) {
+        if (rec.type == FCGI_STDOUT) {
+            var firstStdout = stdout.length == 0;
+            stdout += rec.content.toString ('utf8');
+            if (firstStdout) {
+                if (stdout.substring (0, 14) != 'Status: 200 OK') {
+                    callback ("Did not receive success from server");
+                }
+            }
+        }
+        else if (rec.type == FCGI_END_REQUEST) {
+            var protocolStatus = rec.content[4];
+            var success = protocolStatus == FCGI_REQUEST_COMPLETE;
+            if (success) callback (null);
+            else callback ("Request terminated with a protocol error");
+        }
+    });
+
+    socket.on ('error', function (err) {
+        callback (err);
+    });
+
+    socket.on ('connect', function () {
+        socket.write (FastCGIBeginRequest (1, FCGI_RESPONDER, 0));
+
+        socket.write (FastCGIParams (1, {
+            PATH_INFO: '/',
+            HTTP_HOST: 'somehost.net',
+            REQUEST_METHOD: 'GET',
+            SERVER_NAME: 'FCGI Tester',
+            SERVER_PROTOCOL: 'none',
+            SERVER_PORT: 'none',
+        }));
+
+        socket.write (FastCGIParams (1, {}));
+    });
+
+    socket.on ('data', parser.parse);
+}
+
+
+
+var hostAndPort = process.argv[2];
+if (!hostAndPort) {
+    console.error ("Must specify host:port");
+    process.exit (2);
+}
+var parts = hostAndPort.split (':');
+if (parts.length != 2) {
+    console.error ("Must specify host:port");
+    process.exit (2);
+}
+var host = parts[0];
+var port = parseInt (parts[1]);
+
+
+testFastCGIConnection (host, port, function (err) {
+    if (err) {
+        console.error (err.toString ());
+        process.exit (1);
+    }
+    process.exit (0);
+});

@@ -1,27 +1,17 @@
-# Running iipserver
+# IIPImage docker images
 
-## Instalation
+This repository provides docker images for the IIPImage image server.
 
-```
-cp docker-compose.yml.template docker-compose.yml
-cp nginx/nginx-proxy.conf.template nginx/nginx-proxy.conf
-```
+This repository is not official, and only serves to exemplify the installation of the IIPImage in a docker container.
+For more information visit the official website: (https://iipimage.sourceforge.io/)
 
-## Image folder
+O repositório está dividido em 2 diretórios diferentes com os arquivos necessários para criação da imagem docker, e algum exemplo de configuração.  
 
-Make sure you mapped your images to a tiff folder inside the container
+* iipserver - Refers to the original IIPImage (https://github.com/ruven/iipsrv)
+* iipserver_astro - Refers to the IIPImage Astro fork (https://github.com/cmarmo/iipsrv-astro)
 
-## Convert image to correct format
+Docker images are available in this repository (https://hub.docker.com/repository/docker/linea/iipserver) and are divided by the tag:
 
-Follow the steps described [here](http://iipimage.sourceforge.net/documentation/images/).
+linea/iipserver: latest is the most current image based on the official IIPImage.
 
-## Starting the server
-
-```
-docker-compose up
-```
-
-## Example
-
-1. Create and convert a image saving at tiff/output_image.tif
-2. Access `http://localhost/?FIF=output_image.tif&WID=1900&CVT=jpeg`
+linea/iipserver: astro_xxx are images based on the Astro fork.
